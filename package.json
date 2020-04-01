@@ -1,0 +1,47 @@
+{
+  "name": "@skyslit/ark-express",
+  "version": "1.0.5",
+  "description": "A Framework for building modular business application using NodeJS Express",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "react",
+    "business",
+    "framework"
+  ],
+  "author": "Skyslit Network Private Limited",
+  "license": "ISC",
+  "peerDependencies": {
+    "react": "^16.13.1",
+    "react-router-dom": "^5.1.2",
+    "redux": "^4.0.5",
+    "react-redux": "^7.2.0",
+    "axios": "^0.19.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/preset-env": "^7.9.0",
+    "@babel/preset-react": "^7.9.4",
+    "@babel/preset-typescript": "^7.9.0",
+    "@types/node": "^13.9.4",
+    "@types/react": "^16.9.25",
+    "@types/react-redux": "^7.1.7",
+    "@types/react-router-dom": "^5.1.3",
+    "babel-loader": "^8.1.0",
+    "install": "^0.13.0",
+    "npm": "^6.14.3",
+    "react": "^16.13.1",
+    "react-redux": "^7.2.0",
+    "react-router-dom": "^5.1.2",
+    "redux": "^4.0.5",
+    "source-map-loader": "^0.2.4",
+    "ts-loader": "^6.2.2",
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11",
+    "axios": "^0.19.2"
+  }
+}
