@@ -1,1 +1,1 @@
-A React Framework for building modular business application
+An Express Framework for building modular business application server
