@@ -33,6 +33,7 @@ module.exports = {
     library: '', libraryTarget: 'commonjs',
     path: path.resolve(__dirname, 'build'),
   },
+  target: 'node',
   node: {
       __dirname: false,
       __filename: false

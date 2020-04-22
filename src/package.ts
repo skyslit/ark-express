@@ -2,6 +2,8 @@ import express, { Express } from 'express';
 import mongoose, { Connection } from 'mongoose';
 import chalk from 'chalk';
 import Table from 'cli-table3';
+import http from 'http';
+import https from 'https';
 import { ModuleOptions, Database } from './types';
 import { ArkExpressModule } from './module';
 
@@ -28,6 +30,12 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
     modules: T = {} as any;
     databases: Database[] = [];
+    httpServer: http.Server = null;
+    httpsServer: https.Server = null;
+    httpsOptions: https.ServerOptions = null;
+    httpOption: http.ServerOptions = null;
+    httpPort: number = 80;
+    httpsPort: number = 443;
 
     constructor() {
         this.app = express();
@@ -78,6 +86,21 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
         return 'default';
     }
 
+    configure(opts: http.ServerOptions): ArkExpressPackage<T> {
+        this.httpOption = opts;
+        return this;
+    }
+
+    configureHttps(opts: https.ServerOptions): ArkExpressPackage<T> {
+        this.httpsOptions = opts;
+        return this;
+    }
+
+    usePort(port?: number, securePort?: number) {
+        this.httpPort = port ? port : 80;
+        this.httpsPort = securePort ? securePort : 443;
+    }
+
     private _initializeModules(cb: (err: Error) => void) {
         Object.keys(this.modules).forEach((moduleKey: string) => {
             const _module: ArkExpressModule = this.modules[moduleKey];
@@ -87,10 +110,10 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             if (Array.isArray(_module.modelMapping) && _module.modelMapping.length > 0) {
                 _module.modelMapping.forEach((model) => {
                     model.dbName = model.dbName ? model.dbName : 'default';
-                    model.name = `${_module.id.toLowerCase()}_${model.name}`;
+                    model.name = _module.__normalizeModelName(model.name);
                     db = this.getDatabase(this.resolveDatabaseModuleMap(_module.id, model.dbName));
                     if (!db) { throw new Error('Database has to be initialized before performing module registration') }
-                    db.model(model.name, model.schema);
+                    model.instance = db.model(model.name, model.schema);
                 })
             }
             // Register Models - END
@@ -157,7 +180,22 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
         console.log(chalk.blue('Starting application server...'));
         this._connectDatabases((err) => {
             this._initializeModules((err) => {
-                this.app.listen(3000, () => console.log(`Example app listening at http://localhost:3000`));
+                if (this.httpsOptions) {
+                    // Initialize HTTPS server
+                    this.httpsServer = https.createServer(this.httpsOptions, this.app);
+                    this.httpsServer.addListener('listening', () => {
+                        console.log(chalk.green(`HTTPS listening on port ${this.httpsPort}`));
+                    });
+
+                    this.httpsServer.listen(this.httpsPort);
+                }
+                // Initialize server(s)
+                this.httpServer = http.createServer(this.httpOption, this.app);
+                this.httpServer.addListener('listening', () => {
+                    console.log(chalk.green(`HTTP listening on port ${this.httpPort}`));
+                });
+
+                this.httpServer.listen(this.httpPort);
             })
         })
     }
