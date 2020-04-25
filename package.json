@@ -1,6 +1,6 @@
 {
   "name": "@skyslit/ark-express",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Framework for building modular business application using NodeJS Express",
   "main": "./build/index.js",
   "scripts": {
@@ -24,8 +24,10 @@
     "@babel/core": "^7.9.0",
     "@babel/preset-env": "^7.9.0",
     "@babel/preset-typescript": "^7.9.0",
+    "@types/cookie-parser": "^1.4.2",
     "@types/express": "^4.17.4",
     "@types/mongoose": "^5.7.10",
+    "@types/morgan": "^1.9.0",
     "@types/node": "^13.9.4",
     "axios": "^0.19.2",
     "babel-loader": "^8.1.0",
@@ -42,6 +44,8 @@
   },
   "dependencies": {
     "chalk": "^4.0.0",
-    "cli-table3": "^0.6.0"
+    "cli-table3": "^0.6.0",
+    "cookie-parser": "^1.4.5",
+    "morgan": "^1.10.0"
   }
 }

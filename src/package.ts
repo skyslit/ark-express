@@ -4,6 +4,8 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import http from 'http';
 import https from 'https';
+import logger from 'morgan';
+import cookieParser from 'cookie-parser';
 import { ModuleOptions, Database } from './types';
 import { ArkExpressModule } from './module';
 
@@ -12,7 +14,7 @@ export type ExpressModuleMap = {
 } 
 
 function clearConsole() {
-    console.clear();
+    // console.clear();
 }
 
 export class ArkExpressPackage<T extends ExpressModuleMap = any> {
@@ -175,27 +177,49 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
         })
     }
 
-    start() {
+    private _connectUtilityMiddlewares(cb: (err: Error) => void) {
+        try {
+            // Initialize app middlewares
+            this.app.use(logger('dev'));
+            this.app.use(express.json());
+            this.app.use(express.urlencoded({ extended: false }));
+            this.app.use(cookieParser());
+
+            cb(null);
+        } catch (err) {
+            cb(err);
+        }
+    } 
+
+    start(cb?: (err: Error) => void) {
+        // Initialize server(s)
+        this.httpServer = http.createServer(this.httpOption, this.app);
+
         clearConsole();
         console.log(chalk.blue('Starting application server...'));
         this._connectDatabases((err) => {
-            this._initializeModules((err) => {
-                if (this.httpsOptions) {
-                    // Initialize HTTPS server
-                    this.httpsServer = https.createServer(this.httpsOptions, this.app);
-                    this.httpsServer.addListener('listening', () => {
-                        console.log(chalk.green(`HTTPS listening on port ${this.httpsPort}`));
-                    });
-
-                    this.httpsServer.listen(this.httpsPort);
+            this._connectUtilityMiddlewares((err) => {
+                if (err) {
+                    throw err;
                 }
-                // Initialize server(s)
-                this.httpServer = http.createServer(this.httpOption, this.app);
-                this.httpServer.addListener('listening', () => {
-                    console.log(chalk.green(`HTTP listening on port ${this.httpPort}`));
-                });
 
-                this.httpServer.listen(this.httpPort);
+                this._initializeModules((err) => {
+                    if (this.httpsOptions) {
+                        // Initialize HTTPS server
+                        this.httpsServer = https.createServer(this.httpsOptions, this.app);
+                        this.httpsServer.addListener('listening', () => {
+                            console.log(chalk.green(`HTTPS listening on port ${this.httpsPort}`));
+                        });
+    
+                        this.httpsServer.listen(this.httpsPort);
+                    }
+                    this.httpServer.addListener('listening', () => {
+                        console.log(chalk.green(`HTTP listening on port ${this.httpPort}`));
+                        cb && cb(null);
+                    });
+    
+                    this.httpServer.listen(this.httpPort);
+                })
             })
         })
     }
