@@ -2,6 +2,7 @@ import { Router, RequestHandler } from 'express';
 import { Schema, Connection, Model, Document } from 'mongoose';
 import { ModuleOptions } from './types';
 import { ArkExpressPackage } from './package';
+import { Utils } from './utils'
 
 type ModelMap<DBT> = {
     name: string
@@ -16,6 +17,9 @@ export class ArkExpressModule<DBT = any> {
     router: Router = null;
     package: ArkExpressPackage = null;
     modelMapping: ModelMap<DBT>[] = [];
+    utils: Utils;
+
+    private middlewares: RequestHandler[] = [];
 
     constructor() {
         this.router = Router();
@@ -55,5 +59,19 @@ export class ArkExpressModule<DBT = any> {
 
     __normalizeModelName(modelName: string): string {
         return `${this.id.toLowerCase()}_${modelName}`;
+    }
+
+    __getMiddlewares(): RequestHandler[] {
+        return this.middlewares;
+    }
+
+    use(middleware: RequestHandler): ArkExpressModule<DBT> {
+        this.middlewares.push(middleware);
+        return this;
+    }
+
+    main() {
+        // Do nothing
+
     }
 }

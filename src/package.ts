@@ -5,9 +5,14 @@ import Table from 'cli-table3';
 import http from 'http';
 import https from 'https';
 import logger from 'morgan';
+import cors from 'cors';
+import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import { ModuleOptions, Database } from './types';
 import { ArkExpressModule } from './module';
+import createUtils, { Utils } from './utils';
+import session from 'express-session';
+import createMongoStore from 'connect-mongo';
 
 export type ExpressModuleMap = {
     [key: string]: ArkExpressModule
@@ -28,7 +33,8 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
         return ArkExpressPackage.instance as ArkExpressPackage<T>;
     }
 
-    private app: Express
+    private app: Express;
+    private utils: Utils;
 
     modules: T = {} as any;
     databases: Database[] = [];
@@ -41,6 +47,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
     constructor() {
         this.app = express();
+        this.utils = createUtils(this);
     }
 
     private _normalizeModuleOptions(opts: ModuleOptions): ModuleOptions {
@@ -51,6 +58,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
     useModule(id: string, module: ArkExpressModule, options?: ModuleOptions): ArkExpressPackage<T> {
         module.options = this._normalizeModuleOptions(options);
+        module.utils = this.utils;
         module.package = this;
         module.id = id;
         // @ts-ignore
@@ -120,7 +128,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             }
             // Register Models - END
 
-            this.app.use(_module.options.rootPath, _module.getRouter());
+            _module.main.call(_module);
         })
         cb(null);
     }
@@ -158,7 +166,15 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
                 clearConsole();
                 this.databases.forEach((db) => {
                     if (!db.connection) {
-                        db.connection = mongoose.createConnection(db.connectionString, db);
+                        db.useNewUrlParser = true;
+                        db.useUnifiedTopology = true;
+                        db.connection = mongoose.createConnection(db.connectionString, 
+                            Object.keys(db).reduce((accumulator, item) => { 
+                                if (['name', 'connectionString'].indexOf(item) < 0)
+                                    return Object.assign(accumulator, { [item]: (db as any)[item] }); 
+
+                                return accumulator;
+                            }, {}));
                         db.connection.on('open', () => verifyConnection((isConnectedAll) => {
                             if (isConnectedAll === true) {
                                 showConnectionStatus();
@@ -173,7 +189,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
                         });
                     }
                 })
-            }, 2000);
+            }, 80);
         })
     }
 
@@ -182,14 +198,46 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             // Initialize app middlewares
             this.app.use(logger('dev'));
             this.app.use(express.json());
-            this.app.use(express.urlencoded({ extended: false }));
             this.app.use(cookieParser());
+            this.app.use(bodyParser.urlencoded({ extended: true }));
+            this.app.use(express.urlencoded({ extended: false }));
+            
+            // Session configuration
+            const MongoStore = createMongoStore(session);
+            this.app.use(session({
+                secret: 'secret',
+                name: 'name',
+                saveUninitialized: true,
+                resave: true,
+                store: new MongoStore({ mongooseConnection: this.getDatabase() }),
+                cookie: {
+                    expires: new Date(Date.now() + 7776000000)
+                }
+            }))
+
+            this.app.use(cors());
 
             cb(null);
         } catch (err) {
             cb(err);
         }
-    } 
+    }
+
+    private _connectModuleMiddlewares(cb: (err: Error) => void) {
+        Object.keys(this.modules).forEach((moduleKey: string) => {
+            const _module: ArkExpressModule = this.modules[moduleKey];
+            _module.__getMiddlewares().forEach((middleware) => this.app.use(middleware));
+        })
+        cb(null);
+    }
+
+    private _connectModuleRoutes(cb: (err: Error) => void) {
+        Object.keys(this.modules).forEach((moduleKey: string) => {
+            const _module: ArkExpressModule = this.modules[moduleKey];
+            this.app.use(_module.options.rootPath, _module.getRouter());
+        })
+        cb(null);
+    }
 
     start(cb?: (err: Error) => void) {
         // Initialize server(s)
@@ -197,28 +245,36 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
         clearConsole();
         console.log(chalk.blue('Starting application server...'));
-        this._connectDatabases((err) => {
-            this._connectUtilityMiddlewares((err) => {
-                if (err) {
-                    throw err;
-                }
 
+        const handleErr = (err: Error) => { if (err) throw err; };
+        this._connectDatabases((err) => {
+            handleErr(err);
+            this._connectUtilityMiddlewares((err) => {
+                handleErr(err);
                 this._initializeModules((err) => {
-                    if (this.httpsOptions) {
-                        // Initialize HTTPS server
-                        this.httpsServer = https.createServer(this.httpsOptions, this.app);
-                        this.httpsServer.addListener('listening', () => {
-                            console.log(chalk.green(`HTTPS listening on port ${this.httpsPort}`));
-                        });
-    
-                        this.httpsServer.listen(this.httpsPort);
-                    }
-                    this.httpServer.addListener('listening', () => {
-                        console.log(chalk.green(`HTTP listening on port ${this.httpPort}`));
-                        cb && cb(null);
-                    });
-    
-                    this.httpServer.listen(this.httpPort);
+                    handleErr(err);
+                    this._connectModuleMiddlewares((err) => {
+                        handleErr(err);
+                        this._connectModuleRoutes((err) => {
+                            handleErr(err);
+
+                            if (this.httpsOptions) {
+                                // Initialize HTTPS server
+                                this.httpsServer = https.createServer(this.httpsOptions, this.app);
+                                this.httpsServer.addListener('listening', () => {
+                                    console.log(chalk.green(`HTTPS listening on port ${this.httpsPort}`));
+                                });
+            
+                                this.httpsServer.listen(this.httpsPort);
+                            }
+                            this.httpServer.addListener('listening', () => {
+                                console.log(chalk.green(`HTTP listening on port ${this.httpPort}`));
+                                cb && cb(null);
+                            });
+            
+                            this.httpServer.listen(this.httpPort);
+                        })
+                    })
                 })
             })
         })
