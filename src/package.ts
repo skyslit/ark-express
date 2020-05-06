@@ -14,6 +14,8 @@ import createUtils, { Utils } from './utils';
 import session from 'express-session';
 import createMongoStore from 'connect-mongo';
 
+import { serverContext } from './context';
+
 export type ExpressModuleMap = {
     [key: string]: ArkExpressModule
 } 
@@ -196,6 +198,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
     private _connectUtilityMiddlewares(cb: (err: Error) => void) {
         try {
             // Initialize app middlewares
+            this.app.use(serverContext.initializeContext);
             this.app.use(logger('dev'));
             this.app.use(express.json());
             this.app.use(cookieParser());
@@ -215,7 +218,10 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
                 }
             }))
 
-            this.app.use(cors());
+            this.app.use(cors({
+                origin: true,
+                credentials: true
+            }));
 
             cb(null);
         } catch (err) {
@@ -228,6 +234,10 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             const _module: ArkExpressModule = this.modules[moduleKey];
             _module.__getMiddlewares().forEach((middleware) => this.app.use(middleware));
         })
+
+        // Attach context handler middleware after attaching module middlewares
+        this.app.get('/__context', serverContext.contextHandler);
+        
         cb(null);
     }
 
@@ -236,6 +246,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             const _module: ArkExpressModule = this.modules[moduleKey];
             this.app.use(_module.options.rootPath, _module.getRouter());
         })
+
         cb(null);
     }
 

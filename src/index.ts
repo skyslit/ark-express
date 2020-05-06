@@ -9,7 +9,8 @@ declare global {
             user: {
                 _id: string
                 roles: string[]
-            }
+            },
+            context: any
         }
     }
 }
