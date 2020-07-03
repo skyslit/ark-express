@@ -1,6 +1,6 @@
 {
   "name": "@skyslit/ark-express",
-  "version": "1.0.4",
+  "version": "1.0.7",
   "description": "A Framework for building modular business application using NodeJS Express",
   "main": "./build/index.js",
   "scripts": {

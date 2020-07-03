@@ -1,5 +1,5 @@
 import express, { Express } from 'express';
-import mongoose, { Connection } from 'mongoose';
+import mongoose, { Connection, Mongoose } from 'mongoose';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import http from 'http';
@@ -37,6 +37,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
     private app: Express;
     private utils: Utils;
+    private mongoose: Mongoose = mongoose;
 
     modules: T = {} as any;
     databases: Database[] = [];
@@ -74,6 +75,11 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
         }
         dbConfig.name = dbConfig.name || 'default';
         this.databases.push(dbConfig);
+        return this;
+    }
+
+    useMongoose(mongoose: Mongoose): ArkExpressPackage<T> {
+        this.mongoose = mongoose;
         return this;
     }
 
@@ -170,7 +176,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
                     if (!db.connection) {
                         db.useNewUrlParser = true;
                         db.useUnifiedTopology = true;
-                        db.connection = mongoose.createConnection(db.connectionString, 
+                        db.connection = this.mongoose.createConnection(db.connectionString, 
                             Object.keys(db).reduce((accumulator, item) => { 
                                 if (['name', 'connectionString'].indexOf(item) < 0)
                                     return Object.assign(accumulator, { [item]: (db as any)[item] }); 
@@ -202,7 +208,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             this.app.use(logger('dev'));
             this.app.use(express.json());
             this.app.use(cookieParser());
-            this.app.use(bodyParser.urlencoded({ extended: true }));
+            this.app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
             this.app.use(express.urlencoded({ extended: false }));
             
             // Session configuration
