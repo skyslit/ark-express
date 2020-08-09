@@ -47,6 +47,7 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
     httpOption: http.ServerOptions = null;
     httpPort: number = 80;
     httpsPort: number = 443;
+    enableExpressSession: boolean = false;
 
     constructor() {
         this.app = express();
@@ -111,6 +112,11 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
 
     configureHttps(opts: https.ServerOptions): ArkExpressPackage<T> {
         this.httpsOptions = opts;
+        return this;
+    }
+
+    useMongoSession(value: boolean): ArkExpressPackage<T> {
+        this.enableExpressSession = value;
         return this;
     }
 
@@ -212,17 +218,19 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
             this.app.use(express.urlencoded({ extended: false, limit: '50mb' }));
             
             // Session configuration
-            const MongoStore = createMongoStore(session);
-            this.app.use(session({
-                secret: 'secret',
-                name: 'name',
-                saveUninitialized: true,
-                resave: true,
-                store: new MongoStore({ mongooseConnection: this.getDatabase() }),
-                cookie: {
-                    expires: new Date(Date.now() + 7776000000)
-                }
-            }))
+            if (this.enableExpressSession === true) {
+                const MongoStore = createMongoStore(session);
+                this.app.use(session({
+                    secret: 'secret',
+                    name: 'name',
+                    saveUninitialized: true,
+                    resave: true,
+                    store: new MongoStore({ mongooseConnection: this.getDatabase() }),
+                    cookie: {
+                        expires: new Date(Date.now() + 7776000000)
+                    }
+                }))
+            }
 
             this.app.use(cors({
                 origin: true,
