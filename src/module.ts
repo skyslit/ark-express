@@ -1,4 +1,5 @@
 import { Router, RequestHandler } from 'express';
+import { PathParams } from 'express-serve-static-core';
 import { Schema, Connection, Model, Document } from 'mongoose';
 import { ModuleOptions } from './types';
 import { ArkExpressPackage } from './package';
@@ -11,6 +12,11 @@ type ModelMap<DBT> = {
     dbName?: DBT
 }
 
+type MiddlewareMatcher = {
+    path?: PathParams
+    handler: RequestHandler | RequestHandler[],
+};
+
 export class ArkExpressModule<DBT = any> {
     id: string = null;
     options: ModuleOptions = null;
@@ -19,7 +25,8 @@ export class ArkExpressModule<DBT = any> {
     modelMapping: ModelMap<DBT>[] = [];
     utils: Utils;
 
-    private middlewares: RequestHandler[] = [];
+    // private middlewares: RequestHandler[] = [];
+    private middlewares: MiddlewareMatcher[] = [];
 
     constructor() {
         this.router = Router();
@@ -61,12 +68,22 @@ export class ArkExpressModule<DBT = any> {
         return `${this.id.toLowerCase()}_${modelName}`;
     }
 
-    __getMiddlewares(): RequestHandler[] {
+    __getMiddlewares(): MiddlewareMatcher[] {
         return this.middlewares;
     }
 
     use(middleware: RequestHandler): ArkExpressModule<DBT> {
-        this.middlewares.push(middleware);
+        this.middlewares.push({
+            handler: middleware
+        });
+        return this;
+    }
+
+    useWithPath(path: PathParams, middleware: RequestHandler | RequestHandler[]): ArkExpressModule<DBT> {
+        this.middlewares.push({
+            handler: middleware,
+            path
+        });
         return this;
     }
 

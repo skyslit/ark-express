@@ -246,7 +246,13 @@ export class ArkExpressPackage<T extends ExpressModuleMap = any> {
     private _connectModuleMiddlewares(cb: (err: Error) => void) {
         Object.keys(this.modules).forEach((moduleKey: string) => {
             const _module: ArkExpressModule = this.modules[moduleKey];
-            _module.__getMiddlewares().forEach((middleware) => this.app.use(middleware));
+            _module.__getMiddlewares().forEach((middleware) => {
+                if (middleware.path) {
+                    this.app.use(middleware.path, middleware.handler)
+                } else {
+                    this.app.use(middleware.handler)
+                }
+            });
         })
 
         // Attach context handler middleware after attaching module middlewares
